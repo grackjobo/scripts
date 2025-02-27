@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# Directory holding the user scripts
+SCRIPTS_DIR="$HOME/scripts"
+
+# Loop through all files in ~/scripts
+for FILE in "$SCRIPTS_DIR"/*; do
+    BASENAME=$(basename "$FILE")
+
+    # If it's an executable file, link it (suppress all output)
+    if [[ -f "$FILE" && -x "$FILE" ]]; then
+        sudo rm -f "/usr/local/bin/$BASENAME" >/dev/null 2>&1
+        sudo chmod 755 "$FILE" >/dev/null 2>&1
+        sudo ln -s "$FILE" "/usr/local/bin/$BASENAME" >/dev/null 2>&1
+        sudo chmod 755 "/usr/local/bin/$BASENAME" >/dev/null 2>&1
+    fi
+
+    # Optionally create a .txt file in a txt/ directory inside ~/scripts (suppress all output)
+    TXT_DIR="$SCRIPTS_DIR/txt"
+    mkdir -p "$TXT_DIR" >/dev/null 2>&1
+    touch "$TXT_DIR/$BASENAME.txt" >/dev/null 2>&1
+done
+
+# Output a single line (through ponysay) indicating completion
+cowsay "Scripts Linked"
+

@@ -1,0 +1,67 @@
+#!/bin/bash
+
+# Set credentials, zone ID, account ID, and domain
+CLOUDFLARE_EMAIL="jon@bownds.com"     # Cloudflare account email
+CLOUDFLARE_API_KEY="e84df9f097ba53d2036fd13e37b352afe9ccd" # Cloudflare API key
+ACCOUNT_ID="0c8a6ab4cfcd12d24495a79e01221e18"              # Cloudflare account ID
+ZONE_ID="b8f75f925479c565263cff62a512716c"                 # Updated Zone ID
+DOMAIN="sneedman.com"
+DNS_TTL=3600                   # Time-to-live in seconds
+PROXY_ENABLED=true             # true or false
+
+# Step 1: Retrieve the current WAN IP address
+WAN_IP=$(curl -s https://ipinfo.io/ip)
+
+if [ -z "$WAN_IP" ]; then
+  echo "Failed to retrieve the current WAN IP address."
+  exit 1
+fi
+
+echo "Current WAN IP address: $WAN_IP"
+
+# Step 2: Retrieve all A records for the domain and its subdomains
+DNS_RECORD_RESPONSE=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records?type=A" \
+  -H "Content-Type: application/json" \
+  -H "X-Auth-Email: $CLOUDFLARE_EMAIL" \
+  -H "X-Auth-Key: $CLOUDFLARE_API_KEY" \
+  -H "X-Auth-Account-ID: $ACCOUNT_ID")
+
+RECORDS=$(echo "$DNS_RECORD_RESPONSE" | jq -c '.result[]')
+
+if [ -z "$RECORDS" ] || [ "$RECORDS" == "null" ]; then
+  echo "No A records found for $DOMAIN or its subdomains. Response:"
+  echo "$DNS_RECORD_RESPONSE"
+  exit 1
+fi
+
+# Step 3: Update all A records (including subdomains) with the new IP
+echo "Updating A records for $DOMAIN and its subdomains..."
+for RECORD in $RECORDS; do
+  RECORD_ID=$(echo "$RECORD" | jq -r '.id')
+  RECORD_NAME=$(echo "$RECORD" | jq -r '.name')
+
+  API_ENDPOINT="https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records/$RECORD_ID"
+
+  UPDATE_RESPONSE=$(curl -s -X PUT "$API_ENDPOINT" \
+    -H "Content-Type: application/json" \
+    -H "X-Auth-Email: $CLOUDFLARE_EMAIL" \
+    -H "X-Auth-Key: $CLOUDFLARE_API_KEY" \
+    -H "X-Auth-Account-ID: $ACCOUNT_ID" \
+    --data '{
+      "type": "A",
+      "name": "'"$RECORD_NAME"'",
+      "content": "'"$WAN_IP"'",
+      "ttl": '"$DNS_TTL"',
+      "proxied": '"$PROXY_ENABLED"'
+    }')
+
+  SUCCESS=$(echo "$UPDATE_RESPONSE" | jq -r '.success')
+
+  if [ "$SUCCESS" == "true" ]; then
+    echo "Successfully updated IP for record $RECORD_NAME to $WAN_IP."
+  else
+    echo "Failed to update IP for record $RECORD_NAME. Response:"
+    echo "$UPDATE_RESPONSE"
+  fi
+done
+

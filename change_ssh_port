@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+#
+# change_ssh_port.sh
+#
+# A script to change the SSH port on Ubuntu 22.04 and later,
+# accepting the new port as a command-line argument.
+#
+# Usage: 
+#   sudo ./change_ssh_port.sh <PORT>
+#
+# Example:
+#   sudo ./change_ssh_port.sh 2222
+#
+# Notes:
+#   - Ensure you have console or fallback access because changing 
+#     the SSH port can lock you out if done incorrectly.
+#   - Make sure the new port is allowed in your firewall.
+
+set -e
+
+# ---------------
+# Configuration
+# ---------------
+ALLOW_FIREWALL_RULE="true"   # If "true", the script attempts to add a ufw rule for the new port
+
+# ---------------
+# Argument Check
+# ---------------
+if [[ $EUID -ne 0 ]]; then
+  echo "[ERROR] Please run this script as root (sudo)."
+  exit 1
+fi
+
+if [[ $# -ne 1 ]]; then
+  echo "Usage: $0 <PORT>"
+  exit 1
+fi
+
+NEW_SSH_PORT="$1"
+
+# Optional: Validate that $NEW_SSH_PORT is a number between 1 and 65535
+if ! [[ $NEW_SSH_PORT =~ ^[0-9]+$ ]] || (( NEW_SSH_PORT < 1 || NEW_SSH_PORT > 65535 )); then
+  echo "[ERROR] '$NEW_SSH_PORT' is not a valid port number (1-65535)."
+  exit 1
+fi
+
+echo "[INFO] Changing SSH port to: ${NEW_SSH_PORT}"
+
+# ---------------
+# Detect if socket-based SSH is in use (Ubuntu 22.10+)
+# ---------------
+if systemctl list-unit-files | grep -q '^ssh.socket'; then
+  echo "[INFO] Detected systemd socket-based SSH."
+
+  # --- Method B (preferred): Override socket activation ---
+  mkdir -p /etc/systemd/system/ssh.socket.d
+
+  cat > /etc/systemd/system/ssh.socket.d/listen.conf <<EOF
+[Socket]
+# Reset the ListenStream so we can define our new port
+ListenStream=
+ListenStream=${NEW_SSH_PORT}
+EOF
+
+  systemctl daemon-reload
+  systemctl restart ssh.socket
+
+  echo "[INFO] SSH port changed to ${NEW_SSH_PORT} via ssh.socket override."
+
+else
+  echo "[INFO] Detected legacy ssh.service (or no socket file)."
+
+  # Update /etc/ssh/sshd_config
+  if grep -q '^Port ' /etc/ssh/sshd_config; then
+    # If there's an existing Port line, replace it
+    sed -i "s/^Port .*/Port ${NEW_SSH_PORT}/" /etc/ssh/sshd_config
+  else
+    # Otherwise, append it
+    echo "Port ${NEW_SSH_PORT}" >> /etc/ssh/sshd_config
+  fi
+
+  # Restart the SSH service
+  systemctl restart ssh
+
+  echo "[INFO] SSH port changed to ${NEW_SSH_PORT} via ssh.service."
+fi
+
+# ---------------
+# Firewall Setup
+# ---------------
+if [[ "${ALLOW_FIREWALL_RULE}" == "true" ]]; then
+  if command -v ufw >/dev/null 2>&1; then
+    echo "[INFO] Adding UFW allow rule for port ${NEW_SSH_PORT}/tcp."
+    ufw allow "${NEW_SSH_PORT}/tcp" || true
+  else
+    echo "[WARN] UFW not found. Make sure to open port ${NEW_SSH_PORT} manually."
+  fi
+fi
+
+echo "[SUCCESS] SSH is now configured to listen on port ${NEW_SSH_PORT}."
+echo "Remember to connect using:  ssh -p ${NEW_SSH_PORT} <username>@<server>"
+

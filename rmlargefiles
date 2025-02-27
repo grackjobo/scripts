@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# Function to check and delete large files
+delete_large_files() {
+    local base_path="$1"
+    local size_limit_bytes=$((20 * 1024 * 1024 * 1024)) # 20GB in bytes
+
+    if [ ! -d "$base_path" ]; then
+        echo "Error: The provided path does not exist or is not a directory."
+        exit 1
+    fi
+
+    echo "Scanning directory: $base_path for files larger than 20GB..."
+
+    # Find and delete files larger than the size limit
+    find "$base_path" -type f -size +"$((size_limit_bytes / 1024 / 1024))M" -print -exec rm -v {} \;
+
+    echo "Operation completed."
+}
+
+# Main script execution
+if [ $# -eq 0 ]; then
+    echo "Usage: $0 <directory_path>"
+    exit 1
+fi
+
+delete_large_files "$1"
+

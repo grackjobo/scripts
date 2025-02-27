@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+#
+# install_fail2ban_for_2244.sh
+#
+# Installs and configures Fail2ban on Ubuntu 22.04 to monitor SSH attempts on port 2244.
+
+set -e
+
+# Make sure we are running with sudo or as root
+if [[ $EUID -ne 0 ]]; then
+  echo "[ERROR] Please run this script as root (sudo)."
+  exit 1
+fi
+
+echo "[INFO] Updating package index..."
+apt-get update -y
+
+echo "[INFO] Installing Fail2ban..."
+apt-get install -y fail2ban
+
+# Create or update jail.local from jail.conf
+JAIL_LOCAL="/etc/fail2ban/jail.local"
+
+if [[ ! -f "${JAIL_LOCAL}" ]]; then
+  echo "[INFO] Creating jail.local from jail.conf..."
+  cp /etc/fail2ban/jail.conf "${JAIL_LOCAL}"
+fi
+
+# --------------------------------
+# Basic settings in jail.local
+# --------------------------------
+
+# Ban time (the length of time a client is banned)
+sed -i 's/^bantime\s*=.*/bantime = 1h/' "${JAIL_LOCAL}"
+
+# Max retry (number of failures before being banned)
+sed -i 's/^maxretry\s*=.*/maxretry = 5/' "${JAIL_LOCAL}"
+
+# Find time (the time window during which failures are counted)
+sed -i 's/^findtime\s*=.*/findtime = 600/' "${JAIL_LOCAL}"
+
+# --------------------------------
+# Enable and configure [sshd] jail
+# --------------------------------
+
+# Make sure the [sshd] jail is enabled
+# and that the port is set to 2244.
+# The block to edit is from "[sshd]" until the next blank line (or next section).
+# We'll ensure "enabled = true" and "port = 2244".
+sed -i '/\[sshd\]/,/^$/ {
+  s/^#*\s*enabled\s*=.*/enabled = true/;
+  s/^#*\s*port\s*=.*/port = 2244/;
+}' "${JAIL_LOCAL}"
+
+# --------------------------------
+# Restart and enable Fail2ban
+# --------------------------------
+echo "[INFO] Restarting Fail2ban..."
+systemctl restart fail2ban
+systemctl enable fail2ban
+
+# --------------------------------
+# Check status
+# --------------------------------
+echo ""
+echo "[INFO] Fail2ban installed and configured to monitor SSH on port 2244."
+echo "[INFO] Current status:"
+fail2ban-client status sshd || true
+
+echo ""
+echo "[NOTE] Make sure your SSH server is actually listening on port 2244."
+echo "       e.g., in /etc/ssh/sshd_config and your firewall."
+echo "       You can test by running: ssh -p 2244 <user>@<server>"
+echo ""
+echo "Done."
+

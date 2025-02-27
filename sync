@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# Define source and destination directories
+FROM_DIR="/mnt/hdc/local/Media"
+TO_DIR="/mnt/hdd/local/Media"
+
+# Ensure directories exist
+if [ ! -d "$FROM_DIR" ]; then
+    echo "Error: source directory '$FROM_DIR' does not exist."
+    exit 1
+fi
+
+if [ ! -d "$TO_DIR" ]; then
+    echo "Error: destination directory '$TO_DIR' does not exist."
+    exit 1
+fi
+
+echo "Starting one-way rsync from $FROM_DIR to $TO_DIR..."
+
+# Run rsync to copy files from FROM_DIR to TO_DIR
+rsync -av --progress "$FROM_DIR/" "$TO_DIR/"
+
+# Now manually prompt for deletion of each copied file in FROM_DIR
+find "$FROM_DIR" -type f | while read -r file; do
+    # Check if the file exists at the TO directory
+    if [ -e "$TO_DIR/$(basename "$file")" ]; then
+        echo -n "Delete source file '$file'? [y/N] "
+        read -r response
+        if [[ "$response" =~ ^[Yy]$ ]]; then
+            rm -v "$file"
+        fi
+    fi
+done
+
+echo "Sync completed."
+

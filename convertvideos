@@ -1,0 +1,34 @@
+#!/bin/bash
+
+convert_video_files() {
+    local root_dir="$1"
+    local video_extensions=("*.mkv" "*.mp4" "*.avi" "*.mov" "*.flv" "*.wmv")
+
+    if [[ ! -d "$root_dir" ]]; then
+        echo "Invalid directory. Please provide a valid path."
+        exit 1
+    fi
+
+    find "$root_dir" -type f \( -name "*.mkv" -o -name "*.mp4" -o -name "*.avi" -o -name "*.mov" -o -name "*.flv" -o -name "*.wmv" \) | while read -r file; do
+        dirpath=$(dirname "$file")
+        filename=$(basename "$file")
+        extension="${filename##*.}"
+        basename="${filename%.*}"
+        fixed_file_path="$dirpath/${basename}_fixed.$extension"
+
+        echo "Processing: $file"
+
+        ffmpeg -i "$file" -map 0 -c copy "$fixed_file_path"
+        if [[ $? -eq 0 ]]; then
+            echo "Successfully converted: $file to $fixed_file_path"
+            rm "$file"
+            echo "Deleted original file: $file"
+        else
+            echo "Error processing file: $file"
+        fi
+    done
+}
+
+read -p "Enter the parent directory where the video files are stored: " parent_directory
+convert_video_files "$parent_directory"
+

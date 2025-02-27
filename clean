@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# List all running containers
+running_containers=$(docker ps --format "{{.Names}}")
+
+# Check if there are running containers
+if [ -z "$running_containers" ]; then
+  echo "No running containers found."
+  exit 0
+fi
+
+# Loop through each container
+echo "Running containers:"
+echo "$running_containers"
+
+for container in $running_containers; do
+  echo
+  read -p "Do you want to stop and remove the container '$container'? (y/n): " choice
+  if [[ "$choice" =~ ^[Yy]$ ]]; then
+    # Stop and remove the container
+    echo "Stopping and removing container '$container'..."
+    sudo docker stop "$container"
+    sudo docker rm "$container"
+
+    # Remove the associated directory if it exists
+    if [ -d "/opt/$container" ]; then
+      read -p "Do you also want to remove the directory /opt/$container? (y/n): " dir_choice
+      if [[ "$dir_choice" =~ ^[Yy]$ ]]; then
+        echo "Removing directory /opt/$container..."
+        sudo rm -rf "/opt/$container"
+      else
+        echo "Skipped removing /opt/$container."
+      fi
+    else
+      echo "No directory found at /opt/$container."
+    fi
+  else
+    echo "Skipped container '$container'."
+  fi
+done
+
+echo "Script completed."
+

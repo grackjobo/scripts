@@ -1,0 +1,38 @@
+# Check if the user provided an argument
+if [ -z "$1" ]; then
+  echo "Usage: $0 <swap_size> (e.g., 2G)"
+  exit 1
+fi
+
+SWAP_SIZE=$1
+SWAP_FILE="/swapfile"
+
+# Turn off all running swap processes
+echo "Turning off all running swap processes..."
+swapoff -a
+
+# Resize the swap file
+echo "Resizing swap file to $SWAP_SIZE..."
+fallocate -l $SWAP_SIZE $SWAP_FILE
+
+# Set correct permissions
+echo "Setting permissions on swap file..."
+chmod 600 $SWAP_FILE
+
+# Make the file usable as swap
+echo "Configuring swap file..."
+mkswap $SWAP_FILE
+
+# Activate the swap file
+echo "Activating swap file..."
+swapon $SWAP_FILE
+
+# Verify the swap status
+echo "Swap status after resizing:"
+swapon --show
+
+# Optionally, update /etc/fstab to make the change permanent
+grep -q "$SWAP_FILE" /etc/fstab || echo "$SWAP_FILE none swap sw 0 0" >> /etc/fstab
+
+echo "Swap file resized and activated successfully."
+

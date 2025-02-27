@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# Check if the script is run as root
+if [[ $EUID -ne 0 ]]; then
+   echo "This script must be run as root. Use sudo!" 
+   exit 1
+fi
+
+echo "Disabling swap..."
+swapoff -a
+
+SWAPFILE=$(grep swap /etc/fstab | awk '{print $1}')
+
+if [ -z "$SWAPFILE" ]; then
+    echo "No swap file found in /etc/fstab. Exiting."
+    exit 1
+fi
+
+echo "Wiping swapfile..."
+dd if=/dev/zero of=$SWAPFILE bs=1M status=progress
+
+echo "Recreating swap space..."
+mkswap $SWAPFILE
+
+echo "Enabling swap..."
+swapon $SWAPFILE
+
+echo "Swap cleared and re-enabled successfully."
+
+# Verify swap status
+swapon --summary
+

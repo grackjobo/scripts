@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# Get the 1-minute load average
+LOAD=$(uptime | awk -F'load average:' '{print $2}' | cut -d',' -f1 | awk '{print $1}')
+
+# Convert to integer for comparison
+LOAD_INT=$(echo "$LOAD" | awk '{print int($1)}')
+
+# Check if load exceeds 20
+if [ "$LOAD_INT" -gt 40 ]; then
+    echo "$(date): Load ($LOAD) exceeded 20, running tstop..." >> /var/log/load_monitor.log
+    tstop
+fi
