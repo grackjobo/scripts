@@ -1,0 +1,55 @@
+#!/bin/bash
+
+TV_DIR="/mnt/hdc/local/Media/TV"
+declare -A tv_files
+
+# Function to clean filename (remove special chars, lowercase)
+normalize_filename() {
+    echo "$1" | sed -E 's/[^a-zA-Z0-9]+/ /g' | tr '[:upper:]' '[:lower:]'
+}
+
+# Function to get file size
+get_file_size() {
+    stat --format="%s" "$1"
+}
+
+# Function to prompt user and delete the larger file
+handle_duplicate() {
+    local file1="$1"
+    local file2="$2"
+    local size1=$(get_file_size "$file1")
+    local size2=$(get_file_size "$file2")
+
+    echo -e "\n⚠️ Possible duplicate TV episode found:"
+    echo "1) $file1 ($size1 bytes)"
+    echo "2) $file2 ($size2 bytes)"
+
+    read -p "Delete the larger file? (y/n): " choice
+    if [[ "$choice" == "y" ]]; then
+        if [[ $size1 -gt $size2 ]]; then
+            echo "🗑️ Deleting: $file1"
+            rm -f "$file1"
+        else
+            echo "🗑️ Deleting: $file2"
+            rm -f "$file2"
+        fi
+    fi
+}
+
+# Traverse and find duplicates based on fuzzy matching
+while IFS= read -r -d '' file; do
+    filename=$(basename "$file")
+    norm_filename=$(normalize_filename "$filename")
+
+    for stored_filename in "${!tv_files[@]}"; do
+        if echo "$stored_filename" | grep -i -q "$norm_filename" || echo "$norm_filename" | grep -i -q "$stored_filename"; then
+            handle_duplicate "${tv_files[$stored_filename]}" "$file"
+            break
+        fi
+    done
+
+    tv_files["$norm_filename"]="$file"
+done < <(find "$TV_DIR" -type f -print0)
+
+echo "✅ TV duplicate check completed."
+
