@@ -1,0 +1,5 @@
+sb install radarr
+sb install sonarr
+sb install jellyfin
+sb install prowlarr
+sb install sandbox-qbittorrentvpn

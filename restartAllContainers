@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# Get a list of all running container IDs
+containers=$(docker ps -q)
+
+# Check if there are any running containers
+if [ -z "$containers" ]; then
+    echo "No running containers found."
+    exit 0
+fi
+
+# Loop through each container ID and restart it
+for container in $containers; do
+    echo "Restarting container: $container"
+    docker restart $container
+done
+
+echo "All running containers have been restarted."

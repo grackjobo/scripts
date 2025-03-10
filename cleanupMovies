@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# Define the target directory
+TARGET_DIR="/mnt/hdc/local/Media/Movies"
+
+# Find and delete files over 20GB silently
+find "$TARGET_DIR" -type f -size +20G -exec rm -f {} \;
+
