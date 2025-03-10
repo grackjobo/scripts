@@ -22,8 +22,6 @@ Below is a list of the scripts included in this repository along with their desc
 - `clean`: Removes temporary files and cleans up system directories.
 - `clear_swap`: Clears the swap memory to free up system resources.
 - `convertvideos`: Converts video files to different formats using FFmpeg.
-- `ddns`: Updates dynamic DNS records with the current IP address.
-- `ddns_worky`: A variant of the `ddns` script tailored for specific network configurations.
 - `disable_ip_v_6`: Disables IPv6 networking on the system.
 - `install_fail2ban`: Installs and configures Fail2Ban to protect against unauthorized access.
 - `largefiles`: Identifies large files on the system that may need attention.
