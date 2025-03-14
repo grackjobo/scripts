@@ -1,0 +1,53 @@
+#!/bin/bash
+
+# Check if the user provided an argument
+if [ -z "$1" ]; then
+  echo "Usage: $0 <swap_size> (e.g., 2G)"
+  exit 1
+fi
+
+SWAP_SIZE=$1
+SWAP_FILE="/swapfile"
+
+# Turn off swap if it's currently active
+if swapon --show | grep -q "$SWAP_FILE"; then
+  echo "Turning off swap..."
+  swapoff $SWAP_FILE
+else
+  echo "Swap is not active, proceeding with resizing."
+fi
+
+# Remove the existing swap file (required for shrinking)
+if [ -f "$SWAP_FILE" ]; then
+  echo "Removing existing swap file..."
+  rm -f $SWAP_FILE
+fi
+
+# Create a new swap file with the specified size
+echo "Creating new swap file of size $SWAP_SIZE..."
+fallocate -l $SWAP_SIZE $SWAP_FILE || dd if=/dev/zero of=$SWAP_FILE bs=1M count=$((${SWAP_SIZE%G} * 1024))
+
+# Set correct permissions
+echo "Setting permissions on swap file..."
+chmod 600 $SWAP_FILE
+
+# Make the file usable as swap
+echo "Configuring swap file..."
+mkswap $SWAP_FILE
+
+# Activate the swap file
+echo "Activating swap file..."
+swapon $SWAP_FILE
+
+# Verify the swap status
+echo "Swap status after resizing:"
+swapon --show
+
+# Ensure the change persists on reboot
+if ! grep -q "$SWAP_FILE" /etc/fstab; then
+  echo "$SWAP_FILE none swap sw 0 0" | sudo tee -a /etc/fstab
+  echo "Updated /etc/fstab to persist swap file."
+fi
+
+echo "Swap file resized and activated successfully."
+
